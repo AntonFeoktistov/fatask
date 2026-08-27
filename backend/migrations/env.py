@@ -4,15 +4,15 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
-from models.user import User  # noqa: F401
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.config import settings
-from core.database import Base
+from backend.core.config import settings
+from backend.core.database import Base
+from backend.models.user import User  # noqa: F401
 
 config = context.config
 
@@ -25,7 +25,6 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    """Запуск миграций в offline режиме (без подключения к БД)"""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -38,14 +37,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    """Выполнение миграций с подключением"""
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
-    """Асинхронный запуск миграций"""
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -57,7 +54,6 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Запуск миграций в online режиме"""
     asyncio.run(run_async_migrations())
 
 

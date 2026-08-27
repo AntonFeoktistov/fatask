@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -38,11 +39,17 @@ def create_refresh_token(data: dict) -> str:
     expire = datetime.now(ZoneInfo("Europe/Moscow")) + timedelta(
         days=settings.jwt_refresh_token_expire_days
     )
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(
+    to_encode.update(
+        {
+            "exp": expire,
+            "iat": datetime.now(ZoneInfo("Europe/Moscow")),
+            "jti": str(uuid.uuid4()),
+            "type": "refresh",
+        }
+    )
+    return jwt.encode(
         to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
     )
-    return encoded_jwt
 
 
 def decode_token(token: str) -> dict:

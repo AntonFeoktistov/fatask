@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = Field(default="Task Tracker API", alias="APP_NAME")
     app_version: str = Field(default="0.1.0", alias="APP_VERSION")
-    debug: bool = Field(default=True, alias="DEBUG")
+    debug: bool = Field(default=False, alias="DEBUG")
 
     postgres_user: str = Field(default="postgres", alias="POSTGRES_USER")
     postgres_password: str = Field(default="password", alias="POSTGRES_PASSWORD")

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserCreate(BaseModel):
@@ -11,16 +11,19 @@ class UserResponse(BaseModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=20)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=4, max_length=20)
 
 
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str

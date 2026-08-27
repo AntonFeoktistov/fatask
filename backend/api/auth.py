@@ -14,7 +14,13 @@ from backend.core.security import (
     verify_password,
 )
 from backend.models.user import User
-from backend.schemas.user import TokenResponse, UserCreate, UserLogin, UserResponse
+from backend.schemas.user import (
+    RefreshTokenRequest,
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -91,10 +97,10 @@ async def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    refresh_token: str,
+    request: RefreshTokenRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    payload = decode_token(refresh_token)
+    payload = decode_token(request.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
