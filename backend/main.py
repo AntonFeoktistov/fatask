@@ -1,16 +1,15 @@
-from typing import Annotated
+from fastapi import FastAPI
 
-from fastapi import Depends, FastAPI
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.core.database import get_db, settings
+from backend.api.auth import router as auth_router
+from backend.core.database import settings
 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     debug=settings.debug,
 )
+
+app.include_router(auth_router)
 
 
 @app.get("/")
@@ -20,15 +19,3 @@ async def root():
         "app": settings.app_name,
         "version": settings.app_version,
     }
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-
-@app.get("/users")
-async def get_users(db: Annotated[AsyncSession, Depends(get_db)]):
-    result = await db.execute(text("SELECT COUNT(*) FROM users"))
-    count = result.scalar()
-    return {"count": count}
