@@ -5,6 +5,7 @@ from .config import settings
 
 Base = declarative_base()
 
+from backend.models import Task, User  # noqa: F401
 
 engine = create_async_engine(
     settings.database_url,

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend.core.config import settings
 from backend.core.database import Base
+from backend.models.task import Task  # noqa: F401
 from backend.models.user import User  # noqa: F401
 
 config = context.config

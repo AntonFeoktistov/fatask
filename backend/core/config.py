@@ -24,6 +24,9 @@ class Settings(BaseSettings):
         default=7, alias="JWT_REFRESH_TOKEN_EXPIRE_DAYS"
     )
 
+    MAX_TASK_TITLE_LEN: int = 30
+    MAX_TASK_DESCRIPTION_LEN: int = 500
+
     model_config = SettingsConfigDict(
         env_file=Path(__file__).parent.parent.parent / ".env",
         env_file_encoding="utf-8",

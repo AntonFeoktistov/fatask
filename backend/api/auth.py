@@ -1,19 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core import security
 from backend.core.database import get_db
 from backend.core.dependencies import get_current_user
-from backend.core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    get_password_hash,
-    verify_password,
-)
+from backend.core.exceptions import UserAlreadyExistsException
 from backend.models.user import User
+from backend.repositories.user_repo import UserRepository
 from backend.schemas.user import (
     RefreshTokenRequest,
     TokenResponse,
@@ -34,32 +29,19 @@ async def register(
     user_data: UserCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    existing_email = await db.execute(select(User).where(User.email == user_data.email))
-    if existing_email.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User with this email already exists",
-        )
+    user_repo = UserRepository(db)
+    existing_email = await user_repo.get_user_or_none_by_email(user_data.email)
+    if existing_email:
+        raise UserAlreadyExistsException()
 
-    existing_username = await db.execute(
-        select(User).where(User.username == user_data.username)
-    )
-    if existing_username.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User with this username already exists",
-        )
+    existing_username = await user_repo.get_user_or_none_by_username(user_data.username)
+    if existing_username:
+        raise UserAlreadyExistsException()
 
-    new_user = User(
-        email=user_data.email,
-        username=user_data.username,
-        hashed_password=get_password_hash(user_data.password),
-    )
+    new_user = await user_repo.create_user(user_data)
 
-    db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
-
     return new_user
 
 
@@ -71,8 +53,8 @@ async def login(
     login_data: UserLogin,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    result = await db.execute(select(User).where(User.email == login_data.email))
-    user = result.scalar_one_or_none()
+    user_repo = UserRepository(db)
+    user = await user_repo.get_user_or_none_by_email(login_data.email)
 
     if not user:
         raise HTTPException(
@@ -80,14 +62,16 @@ async def login(
             detail="Incorrect email or password",
         )
 
-    if not verify_password(login_data.password, user.hashed_password):
+    if not security.verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
 
-    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    access_token = security.create_access_token(
+        data={"sub": str(user.id), "email": user.email}
+    )
+    refresh_token = security.create_refresh_token(data={"sub": str(user.id)})
 
     return TokenResponse(
         access_token=access_token,
@@ -100,7 +84,7 @@ async def refresh_token(
     request: RefreshTokenRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    payload = decode_token(request.refresh_token)
+    payload = security.decode_token(request.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -113,9 +97,8 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         )
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user_repo = UserRepository(db)
+    user = await user_repo.get_user_or_none_by_id(user_id)
 
     if not user:
         raise HTTPException(
@@ -123,8 +106,10 @@ async def refresh_token(
             detail="User not found or inactive",
         )
 
-    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
-    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    access_token = security.create_access_token(
+        data={"sub": str(user.id), "email": user.email}
+    )
+    new_refresh_token = security.create_refresh_token(data={"sub": str(user.id)})
 
     return TokenResponse(
         access_token=access_token,
@@ -139,7 +124,7 @@ async def get_me(
     return current_user
 
 
-@router.post("/logout", summary="Выход из системы")
+@router.post("/logout")
 async def logout(
     current_user: Annotated[User, Depends(get_current_user)],
 ):

@@ -7,12 +7,13 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     create_async_engine,
 )
+from sqlalchemy.orm import configure_mappers
 from sqlalchemy.pool import NullPool
 
 from backend.core.database import Base, get_db
 from backend.core.security import get_password_hash
 from backend.main import app
-from backend.models.user import User
+from backend.models import Task, User  # noqa
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -34,6 +35,8 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    configure_mappers()
+
     async with test_engine.connect() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
