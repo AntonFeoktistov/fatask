@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.config import settings
 
@@ -32,11 +32,15 @@ class TaskUpdate(BaseModel):
     )
 
 
-class TaskDelete(BaseModel):
-    id: int
-
-
 class TaskResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     title: str
     description: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int

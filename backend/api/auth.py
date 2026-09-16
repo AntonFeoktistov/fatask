@@ -1,19 +1,23 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core import security
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import get_current_user
-from backend.core.exceptions import UserAlreadyExistsException
+from backend.core.exceptions import (
+    NotCorrectCredentialsException,
+    UserAlreadyExistsException,
+)
 from backend.models.user import User
 from backend.repositories.user_repo import UserRepository
 from backend.schemas.user import (
-    RefreshTokenRequest,
     TokenResponse,
     UserCreate,
-    UserLogin,
     UserResponse,
 )
 
@@ -45,75 +49,58 @@ async def register(
     return new_user
 
 
-@router.post(
-    "/login",
-    response_model=TokenResponse,
-)
+@router.post("/token", response_model=TokenResponse)
 async def login(
-    login_data: UserLogin,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user_repo = UserRepository(db)
-    user = await user_repo.get_user_or_none_by_email(login_data.email)
+    user = await user_repo.get_user_or_none_by_username(form_data.username)
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
-
-    if not security.verify_password(login_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-        )
+    if not user or not security.verify_password(
+        form_data.password, user.hashed_password
+    ):
+        raise NotCorrectCredentialsException()
 
     access_token = security.create_access_token(
-        data={"sub": str(user.id), "email": user.email}
+        data={"sub": str(user.id), "username": user.username}
     )
     refresh_token = security.create_refresh_token(data={"sub": str(user.id)})
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
+        expires_in=settings.jwt_access_token_expire_minutes * 60,
     )
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(
-    request: RefreshTokenRequest,
+async def refresh(
+    refresh_token: str,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    payload = security.decode_token(request.refresh_token)
-    if not payload or payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-        )
+    try:
+        payload = security.decode_token(refresh_token)
+    except JWTError:
+        raise HTTPException(401, "Invalid refresh token")
+
+    if payload.get("type") != "refresh":
+        raise HTTPException(401, "Invalid token type")
 
     user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
-        )
     user_repo = UserRepository(db)
-    user = await user_repo.get_user_or_none_by_id(user_id)
-
+    user = await user_repo.get_user_or_none_by_id(db, int(user_id))
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
-        )
+        raise HTTPException(401, "User not found")
 
-    access_token = security.create_access_token(
-        data={"sub": str(user.id), "email": user.email}
+    new_access = security.create_access_token(
+        {"sub": str(user.id), "username": user.username}
     )
-    new_refresh_token = security.create_refresh_token(data={"sub": str(user.id)})
-
     return TokenResponse(
-        access_token=access_token,
-        refresh_token=new_refresh_token,
+        access_token=new_access,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        expires_in=settings.jwt_access_token_expire_minutes * 60,
     )
 
 

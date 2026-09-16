@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import String
+from sqlalchemy import String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.database import Base
@@ -9,8 +9,8 @@ from backend.core.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True
     )
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
@@ -21,10 +21,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
     tasks: Mapped[list["Task"]] = relationship(  # noqa: F821
-        "Task",
-        back_populates="user",
-        lazy="selectin",
-        primaryjoin="User.id == Task.user_id",
+        "Task", back_populates="user", lazy="selectin"
     )
 
     def __repr__(self) -> str:

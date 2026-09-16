@@ -1,12 +1,13 @@
 import uuid
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import UTC, datetime, timedelta
 
-from jose import JWTError, jwt
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt
 from passlib.context import CryptContext
 
 from backend.core.config import settings
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 
@@ -20,29 +21,26 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(ZoneInfo("Europe/Moscow")) + expires_delta
-    else:
-        expire = datetime.now(ZoneInfo("Europe/Moscow")) + timedelta(
-            minutes=settings.jwt_access_token_expire_minutes
-        )
-
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
+    now = datetime.now(UTC)
+    expire = now + (
+        expires_delta or timedelta(minutes=settings.jwt_access_token_expire_minutes)
+    )
+    to_encode.update(
+        {"exp": expire, "iat": now, "type": "access", "jti": str(uuid.uuid4())}
+    )
+    return jwt.encode(
         to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
     )
-    return encoded_jwt
 
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(ZoneInfo("Europe/Moscow")) + timedelta(
-        days=settings.jwt_refresh_token_expire_days
-    )
+    now = datetime.now(UTC)
+    expire = now + timedelta(days=settings.jwt_refresh_token_expire_days)
     to_encode.update(
         {
             "exp": expire,
-            "iat": datetime.now(ZoneInfo("Europe/Moscow")),
+            "iat": now,
             "jti": str(uuid.uuid4()),
             "type": "refresh",
         }
@@ -53,10 +51,6 @@ def create_refresh_token(data: dict) -> str:
 
 
 def decode_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(
-            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
-        )
-        return payload
-    except JWTError:
-        return {}
+    return jwt.decode(
+        token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+    )

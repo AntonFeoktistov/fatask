@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from backend.api.auth import router as auth_router
+from backend.api.task_crud import router as task_router
 from backend.core.database import settings
 
 app = FastAPI(
@@ -10,6 +11,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
+app.include_router(task_router)
 
 
 @app.get("/")
