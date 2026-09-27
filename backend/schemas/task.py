@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.config import settings
@@ -19,7 +21,7 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    id: int
+    oid: uuid.UUID
     title: str = Field(
         min_length=1,
         max_length=settings.MAX_TASK_TITLE_LEN,
@@ -34,13 +36,6 @@ class TaskUpdate(BaseModel):
 
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: int
+    oid: uuid.UUID
     title: str
     description: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int

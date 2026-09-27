@@ -63,9 +63,9 @@ async def login(
         raise NotCorrectCredentialsException()
 
     access_token = security.create_access_token(
-        data={"sub": str(user.id), "username": user.username}
+        data={"sub": str(user.oid), "username": user.username}
     )
-    refresh_token = security.create_refresh_token(data={"sub": str(user.id)})
+    refresh_token = security.create_refresh_token(data={"sub": str(user.oid)})
 
     return TokenResponse(
         access_token=access_token,
@@ -87,14 +87,14 @@ async def refresh(
     if payload.get("type") != "refresh":
         raise HTTPException(401, "Invalid token type")
 
-    user_id = payload.get("sub")
+    user_oid = payload.get("sub")
     user_repo = UserRepository(db)
-    user = await user_repo.get_user_or_none_by_id(db, int(user_id))
+    user = await user_repo.get_user_or_none_by_oid(db, user_oid)
     if not user:
         raise HTTPException(401, "User not found")
 
     new_access = security.create_access_token(
-        {"sub": str(user.id), "username": user.username}
+        {"sub": str(user.oid), "username": user.username}
     )
     return TokenResponse(
         access_token=new_access,

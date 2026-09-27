@@ -9,7 +9,7 @@ from backend.core.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(
+    oid: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True
     )
     email: Mapped[str] = mapped_column(

@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,10 +12,10 @@ class UserRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_user_or_none_by_id(self, user_id: int) -> User | None:
+    async def get_user_or_none_by_oid(self, user_oid: uuid.UUID) -> User | None:
         query = await self.db.execute(
             select(User).where(
-                User.id == user_id,
+                User.oid == user_oid,
             )
         )
         return query.scalar_one_or_none()

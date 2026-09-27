@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/api/task", tags=["task"])
 
 
 @router.post(
-    "/",
+    "",
     response_model=TaskResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -28,15 +29,29 @@ async def create_task(
 
 
 @router.get(
-    "/{task_id}",
+    "/{task_oid}",
     response_model=TaskResponse,
     status_code=status.HTTP_200_OK,
 )
 async def get_task(
-    task_id: int,
+    task_oid: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> TaskResponse:
     task_service = TaskService(db)
-    task = await task_service.get_task_by_id(task_id, user)
+    task = await task_service.get_task_by_oid(task_oid, user)
     return task
+
+
+@router.get(
+    "",
+    response_model=list[TaskResponse],
+    status_code=status.HTTP_200_OK,
+)
+async def get_all_users_tasks(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> TaskResponse:
+    task_service = TaskService(db)
+    tasks = await task_service.get_all_users_tasks(user)
+    return tasks

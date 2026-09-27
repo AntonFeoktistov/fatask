@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,25 +14,29 @@ class TaskRepository:
         self.db = db
         self.user_repo = UserRepository(self.db)
 
-    async def get_task_or_none_by_id(self, task_id: int) -> Task | None:
+    async def get_task_or_none_by_oid(self, task_oid: uuid.UUID) -> Task | None:
         query = await self.db.execute(
             select(Task).where(
-                Task.id == task_id,
+                Task.oid == task_oid,
             )
         )
         return query.scalar_one_or_none()
 
-    async def get_task_or_none(self, user_id: int, title: str) -> Task | None:
+    async def get_task_or_none(self, user_oid: uuid.UUID, title: str) -> Task | None:
         query = await self.db.execute(
-            select(Task).where(Task.title == title, Task.user_id == user_id)
+            select(Task).where(Task.title == title, Task.user_oid == user_oid)
         )
         return query.scalar_one_or_none()
 
-    async def get_user_tasks(self, user_id: int) -> list[Task]:
-        query = await self.db.execute(select(Task).where(Task.user_id == user_id))
+    async def get_user_tasks(self, user_oid: uuid.UUID) -> list[Task]:
+        query = await self.db.execute(select(Task).where(Task.user_oid == user_oid))
         return query.scalars().all()
 
-    async def create_task(self, task_data: TaskCreate, user: User) -> Task:
+    async def create_task(
+        self,
+        user: User,
+        task_data: TaskCreate,
+    ) -> Task:
         new_task = Task(
             title=task_data.title, description=task_data.description, user=user
         )
