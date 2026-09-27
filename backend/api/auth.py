@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,6 +17,7 @@ from backend.core.exceptions import (
 from backend.models.user import User
 from backend.repositories.user_repo import UserRepository
 from backend.schemas.user import (
+    RefreshTokenRequest,
     TokenResponse,
     UserCreate,
     UserResponse,
@@ -76,29 +78,38 @@ async def login(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
-    refresh_token: str,
+    body: RefreshTokenRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     try:
-        payload = security.decode_token(refresh_token)
+        payload = security.decode_token(body.refresh_token)
     except JWTError:
         raise HTTPException(401, "Invalid refresh token")
 
     if payload.get("type") != "refresh":
         raise HTTPException(401, "Invalid token type")
 
-    user_oid = payload.get("sub")
+    sub = payload.get("sub")
+    if sub is None:
+        raise HTTPException(401, "Invalid refresh token")
+
+    try:
+        user_oid = uuid.UUID(sub)
+    except (TypeError, ValueError):
+        raise HTTPException(401, "Invalid refresh token")
+
     user_repo = UserRepository(db)
-    user = await user_repo.get_user_or_none_by_oid(db, user_oid)
+    user = await user_repo.get_user_or_none_by_oid(user_oid)
     if not user:
         raise HTTPException(401, "User not found")
 
     new_access = security.create_access_token(
-        {"sub": str(user.oid), "username": user.username}
+        data={"sub": str(user.oid), "username": user.username}
     )
+
     return TokenResponse(
         access_token=new_access,
-        refresh_token=refresh_token,
+        refresh_token=body.refresh_token,
         token_type="bearer",
         expires_in=settings.jwt_access_token_expire_minutes * 60,
     )

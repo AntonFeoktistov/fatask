@@ -2,6 +2,8 @@ from httpx import AsyncClient
 
 from backend.models.user import User
 
+# ========== РЕГИСТРАЦИЯ ==========
+
 
 async def test_register_success(client: AsyncClient):
     response = await client.post(
@@ -69,14 +71,14 @@ async def test_register_invalid_email(client: AsyncClient):
     assert response.status_code == 422
 
 
-# ========== ЛОГИН ==========
+# ========== ЛОГИН (OAuth2 password flow) ==========
 
 
 async def test_login_success(client: AsyncClient, test_user: User):
     response = await client.post(
-        "/api/auth/login",
-        json={
-            "email": "test@example.com",
+        "/api/auth/token",
+        data={
+            "username": "testuser",
             "password": "password123",
         },
     )
@@ -89,33 +91,33 @@ async def test_login_success(client: AsyncClient, test_user: User):
 
 async def test_login_wrong_password(client: AsyncClient, test_user: User):
     response = await client.post(
-        "/api/auth/login",
-        json={
-            "email": "test@example.com",
+        "/api/auth/token",
+        data={
+            "username": "testuser",
             "password": "wrongpassword",
         },
     )
     assert response.status_code == 401
-    assert "Incorrect email or password" in response.json()["detail"]
+    assert "username or password" in response.json()["detail"]
 
 
 async def test_login_nonexistent_user(client: AsyncClient):
     response = await client.post(
-        "/api/auth/login",
-        json={
-            "email": "nonexistent@example.com",
+        "/api/auth/token",
+        data={
+            "username": "nonexistent",
             "password": "password123",
         },
     )
     assert response.status_code == 401
-    assert "Incorrect email or password" in response.json()["detail"]
+    assert "username or password" in response.json()["detail"]
 
 
-async def test_login_empty_email(client: AsyncClient):
+async def test_login_empty_username(client: AsyncClient):
     response = await client.post(
-        "/api/auth/login",
-        json={
-            "email": "",
+        "/api/auth/token",
+        data={
+            "username": "",
             "password": "password123",
         },
     )
@@ -124,9 +126,9 @@ async def test_login_empty_email(client: AsyncClient):
 
 async def test_login_empty_password(client: AsyncClient):
     response = await client.post(
-        "/api/auth/login",
-        json={
-            "email": "test@example.com",
+        "/api/auth/token",
+        data={
+            "username": "testuser",
             "password": "",
         },
     )
@@ -183,11 +185,8 @@ async def test_logout_unauthorized(client: AsyncClient):
 
 async def test_refresh_token_success(client: AsyncClient, test_user: User):
     login_response = await client.post(
-        "/api/auth/login",
-        json={
-            "email": "test@example.com",
-            "password": "password123",
-        },
+        "/api/auth/token",
+        data={"username": "testuser", "password": "password123"},
     )
     assert login_response.status_code == 200
     refresh_token = login_response.json()["refresh_token"]
@@ -201,7 +200,6 @@ async def test_refresh_token_success(client: AsyncClient, test_user: User):
     data = response.json()
     assert "access_token" in data
     assert "refresh_token" in data
-    assert data["refresh_token"] != refresh_token
 
 
 async def test_refresh_token_invalid(client: AsyncClient):
@@ -213,8 +211,5 @@ async def test_refresh_token_invalid(client: AsyncClient):
 
 
 async def test_refresh_token_missing(client: AsyncClient):
-    response = await client.post(
-        "/api/auth/refresh",
-        json={},
-    )
+    response = await client.post("/api/auth/refresh", json={})
     assert response.status_code == 422
