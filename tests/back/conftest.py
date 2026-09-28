@@ -13,7 +13,7 @@ from sqlalchemy.pool import NullPool
 from backend.core.database import Base, get_db
 from backend.core.security import get_password_hash
 from backend.main import app
-from backend.models import Task, User  # noqa
+from backend.models import Task, User
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -86,3 +86,29 @@ async def auth_headers(client: AsyncClient, test_user: User) -> dict:
     assert response.status_code == 200, response.text
     data = response.json()
     return {"Authorization": f"Bearer {data['access_token']}"}
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_task(db_session: AsyncSession, test_user: User) -> Task:
+    task = Task(
+        title="Test task",
+        description="Test description",
+        user_oid=test_user.oid,
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+    return task
+
+
+@pytest_asyncio.fixture(scope="function")
+async def other_user(db_session: AsyncSession) -> User:
+    user = User(
+        email="other@example.com",
+        username="otheruser",
+        hashed_password=get_password_hash("password123"),
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user

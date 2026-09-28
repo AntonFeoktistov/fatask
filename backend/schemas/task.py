@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,21 +22,23 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    oid: uuid.UUID
-    title: str = Field(
+    title: str | None = Field(
+        default=None,
         min_length=1,
         max_length=settings.MAX_TASK_TITLE_LEN,
-        strip_whitespace=True,
         pattern=r"^\S.*$",
     )
-    description: str = Field(
+    description: str | None = Field(
+        default=None,
         max_length=settings.MAX_TASK_DESCRIPTION_LEN,
-        strip_whitespace=True,
     )
 
 
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
     oid: uuid.UUID
     title: str
-    description: str
+    description: str | None
+    created_at: datetime
+    updated_at: datetime

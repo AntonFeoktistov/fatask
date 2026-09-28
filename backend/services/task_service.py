@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,15 +42,27 @@ class TaskService:
         return task
 
     async def update_task(
-        self, task_oid: uuid.UUID, user: User, task_data: TaskUpdate
+        self,
+        task_oid: uuid.UUID,
+        task_data: TaskUpdate,
+        user: User,
     ) -> Task:
         task = await self.get_task_by_oid(task_oid, user)
-        updated = await self.task_repo.update(task, task_data)
+        if not task:
+            raise TaskIsNotFoundException()
+
+        if task_data.title is not None:
+            task.title = task_data.title
+        if task_data.description is not None:
+            task.description = task_data.description
+        task.updated_at = datetime.now(UTC)
         await self.db.commit()
-        await self.db.refresh(updated)
-        return updated
+        await self.db.refresh(task)
+        return task
 
     async def delete_task(self, task_oid: uuid.UUID, user: User) -> None:
         task = await self.get_task_by_oid(task_oid, user)
-        await self.task_repo.delete(task)
+        if not task:
+            raise TaskIsNotFoundException()
+        await self.db.delete(task)
         await self.db.commit()
