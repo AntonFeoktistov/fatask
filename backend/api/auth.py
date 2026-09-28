@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +17,6 @@ from backend.core.exceptions import (
 from backend.models.user import User
 from backend.repositories.user_repo import UserRepository
 from backend.schemas.user import (
-    RefreshTokenRequest,
     TokenResponse,
     UserCreate,
     UserResponse,
@@ -53,6 +52,7 @@ async def register(
 
 @router.post("/token", response_model=TokenResponse)
 async def login(
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -68,24 +68,34 @@ async def login(
         data={"sub": str(user.oid), "username": user.username}
     )
     refresh_token = security.create_refresh_token(data={"sub": str(user.oid)})
-
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.jwt_refresh_token_expire_days * 24 * 3600,
+        path="/",
+    )
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         expires_in=settings.jwt_access_token_expire_minutes * 60,
     )
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
-    body: RefreshTokenRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
+    response: Response,
+    refresh_token: Annotated[str | None, Cookie()] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ):
+    if refresh_token is None:
+        raise HTTPException(401, "No refresh token")
+
     try:
-        payload = security.decode_token(body.refresh_token)
+        payload = security.decode_token(refresh_token)
     except JWTError:
         raise HTTPException(401, "Invalid refresh token")
-
     if payload.get("type") != "refresh":
         raise HTTPException(401, "Invalid token type")
 
@@ -107,10 +117,18 @@ async def refresh(
         data={"sub": str(user.oid), "username": user.username}
     )
 
+    new_refresh = security.create_refresh_token(data={"sub": str(user.oid)})
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.jwt_refresh_token_expire_days * 24 * 3600,
+        path="/",
+    )
     return TokenResponse(
         access_token=new_access,
-        refresh_token=body.refresh_token,
-        token_type="bearer",
         expires_in=settings.jwt_access_token_expire_minutes * 60,
     )
 
@@ -124,6 +142,8 @@ async def get_me(
 
 @router.post("/logout")
 async def logout(
+    response: Response,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    response.delete_cookie("refresh_token", path="/")
     return {"message": "Successfully logged out"}

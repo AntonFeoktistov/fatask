@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncGenerator, Generator
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import configure_mappers
 from sqlalchemy.pool import NullPool
 
+from backend.core.config import settings
 from backend.core.database import Base, get_db
 from backend.core.security import get_password_hash
 from backend.main import app
@@ -22,6 +24,11 @@ test_engine = create_async_engine(
     echo=False,
     poolclass=NullPool,
 )
+
+
+@pytest.fixture(autouse=True)
+def _disable_secure_cookie(monkeypatch):
+    monkeypatch.setattr(settings, "cookie_secure", False)
 
 
 @pytest_asyncio.fixture(scope="session")

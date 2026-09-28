@@ -1,11 +1,10 @@
 import axios from 'axios';
 import type { TokenResponse } from '@/types/api';
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,  // <-- куки уходят с каждым запросом
+})
 
 // Перехватчик запросов: добавляем токен в каждый запрос
 apiClient.interceptors.request.use(
@@ -33,9 +32,7 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token');
         }
         // Пытаемся обновить токен
-        const { data } = await apiClient.post<TokenResponse>('/api/auth/refresh', {
-          refresh_token: refreshToken,
-        });
+        const { data } = await apiClient.post<TokenResponse>('/api/auth/refresh')
         localStorage.setItem('access_token', data.access_token);
         localStorage.setItem('refresh_token', data.refresh_token);
         // Повторяем оригинальный запрос

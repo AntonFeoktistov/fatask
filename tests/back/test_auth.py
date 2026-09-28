@@ -85,7 +85,6 @@ async def test_login_success(client: AsyncClient, test_user: User):
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
-    assert "refresh_token" in data
     assert data["token_type"] == "bearer"
 
 
@@ -189,17 +188,14 @@ async def test_refresh_token_success(client: AsyncClient, test_user: User):
         data={"username": "testuser", "password": "password123"},
     )
     assert login_response.status_code == 200
-    refresh_token = login_response.json()["refresh_token"]
 
-    response = await client.post(
-        "/api/auth/refresh",
-        json={"refresh_token": refresh_token},
-    )
+    login_data = login_response.json()
+    assert "access_token" in login_data
+    assert "refresh_token" not in login_data
+    assert "refresh_token" in client.cookies
 
+    response = await client.post("/api/auth/refresh")
     assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
 
 
 async def test_refresh_token_invalid(client: AsyncClient):
@@ -212,4 +208,4 @@ async def test_refresh_token_invalid(client: AsyncClient):
 
 async def test_refresh_token_missing(client: AsyncClient):
     response = await client.post("/api/auth/refresh", json={})
-    assert response.status_code == 422
+    assert response.status_code == 401

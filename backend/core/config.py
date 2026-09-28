@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     MAX_TASK_TITLE_LEN: int = 30
     MAX_TASK_DESCRIPTION_LEN: int = 500
 
+    cookie_secure: bool = False
+
     model_config = SettingsConfigDict(
         env_file=Path(__file__).parent.parent.parent / ".env",
         env_file_encoding="utf-8",

@@ -14,21 +14,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(username: string, password: string) {
-    const formData = new URLSearchParams()
-    formData.append('username', username)
-    formData.append('password', password)
+  const formData = new URLSearchParams()
+  formData.append('username', username)
+  formData.append('password', password)
 
-    const { data } = await apiClient.post<TokenResponse>(
-      '/api/auth/token',
-      formData,
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    )
+  const { data } = await apiClient.post<TokenResponse>(
+    '/api/auth/token',
+    formData,
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  )
 
-    localStorage.setItem('access_token', data.access_token)
-    localStorage.setItem('refresh_token', data.refresh_token)
-    isAuthenticated.value = true
-    await fetchUser()
-  }
+  localStorage.setItem('access_token', data.access_token)
+  isAuthenticated.value = true
+  await fetchUser()
+}
 
   async function fetchUser() {
     try {
@@ -41,12 +40,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    isAuthenticated.value = false
-    user.value = null
+  async function logout() {
+  try {
+    await apiClient.post('/api/auth/logout')  // бэк удалит куку
+  } catch {
   }
+  localStorage.removeItem('access_token')
+  isAuthenticated.value = false
+  user.value = null
+}
 
   return { user, isAuthenticated, register, login, fetchUser, logout }
 })
