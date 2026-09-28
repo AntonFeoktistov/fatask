@@ -31,12 +31,14 @@ export interface TaskCreate {
 export interface TaskUpdate {
   title?: string;
   description?: string;
+  is_done?: boolean;
 }
 
 export interface TaskResponse {
   oid: string; // UUID приходит как строка
   title: string;
   description: string | null;
+  is_done: boolean;
   created_at: string; // ISO 8601
   updated_at: string; // ISO 8601
 }
