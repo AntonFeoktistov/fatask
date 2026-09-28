@@ -1,5 +1,4 @@
 import uuid
-from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,7 +54,8 @@ class TaskService:
             task.title = task_data.title
         if task_data.description is not None:
             task.description = task_data.description
-        task.updated_at = datetime.now(UTC)
+        if task_data.is_done is not None:
+            task.is_done = task_data.is_done
         await self.db.commit()
         await self.db.refresh(task)
         return task

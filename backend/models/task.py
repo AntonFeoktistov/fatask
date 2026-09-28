@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.database import Base
@@ -24,6 +24,12 @@ class Task(Base):
     )
     user: Mapped["User"] = relationship(  # noqa: F821
         "User", back_populates="tasks"
+    )
+    is_done: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(

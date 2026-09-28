@@ -339,3 +339,49 @@ async def test_delete_task_of_another_user(
 async def test_delete_task_unauthorized(client: AsyncClient, test_task: Task):
     response = await client.delete(f"/api/tasks/{test_task.oid}")
     assert response.status_code == 401
+
+
+async def test_update_is_done_true(
+    client: AsyncClient, auth_headers: dict, test_task: Task
+):
+    assert test_task.is_done is False  # по дефолту
+
+    response = await client.patch(
+        f"/api/tasks/{test_task.oid}",
+        json={"is_done": True},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["is_done"] is True
+    assert test_task.is_done is True
+
+
+async def test_update_is_done_false_after_true(
+    client: AsyncClient, auth_headers: dict, test_task: Task
+):
+    await client.patch(
+        f"/api/tasks/{test_task.oid}",
+        json={"is_done": True},
+        headers=auth_headers,
+    )
+    assert test_task.is_done is True
+    response = await client.patch(
+        f"/api/tasks/{test_task.oid}",
+        json={"is_done": False},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["is_done"] is False
+
+
+async def test_update_is_done_already_false(
+    client: AsyncClient, auth_headers: dict, test_task: Task
+):
+    # false → false — no-op, но должно вернуть 200
+    response = await client.patch(
+        f"/api/tasks/{test_task.oid}",
+        json={"is_done": False},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["is_done"] is False

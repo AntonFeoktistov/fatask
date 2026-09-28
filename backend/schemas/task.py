@@ -32,6 +32,7 @@ class TaskUpdate(BaseModel):
         default=None,
         max_length=settings.MAX_TASK_DESCRIPTION_LEN,
     )
+    is_done: bool | None = Field(default=None)
 
 
 class TaskResponse(BaseModel):
@@ -40,5 +41,6 @@ class TaskResponse(BaseModel):
     oid: uuid.UUID
     title: str
     description: str | None
+    is_done: bool
     created_at: datetime
     updated_at: datetime
