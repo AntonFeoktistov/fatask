@@ -5,6 +5,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).parent.parent.parent / ".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
+
     app_name: str = Field(default="Task Tracker API", alias="APP_NAME")
     app_version: str = Field(default="0.1.0", alias="APP_VERSION")
     debug: bool = Field(default=False, alias="DEBUG")
@@ -29,16 +36,18 @@ class Settings(BaseSettings):
 
     cookie_secure: bool = False
 
-    model_config = SettingsConfigDict(
-        env_file=Path(__file__).parent.parent.parent / ".env",
-        env_file_encoding="utf-8",
-        case_sensitive=True,
-        extra="ignore",
-    )
+    SMTP_HOST: str = Field(default="localhost", alias="SMTP_HOST")
+    SMTP_PORT: int = Field(default=1025, alias="SMTP_PORT")
+    SMTP_FROM: str = Field(default="noreply@fatask.local", alias="SMTP_FROM")
+    SMTP_USER: str | None = Field(default=None, alias="SMTP_USER")
+    SMTP_PASSWORD: str | None = Field(default=None, alias="SMTP_PASSWORD")
+    SMTP_USE_TLS: bool = Field(default=False, alias="SMTP_USE_TLS")
 
     @property
     def database_url(self) -> str:
         return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+
+    RABBITMQ_URL: str = "amqp://fatask:fatask@localhost:5672//"
 
 
 settings = Settings()

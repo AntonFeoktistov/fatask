@@ -21,6 +21,7 @@ from backend.schemas.user import (
     UserCreate,
     UserResponse,
 )
+from backend.tasks.email_tasks import send_welcome_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -47,6 +48,7 @@ async def register(
 
     await db.commit()
     await db.refresh(new_user)
+    send_welcome_email.delay(new_user.email, new_user.username)
     return new_user
 
 

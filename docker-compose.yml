@@ -3,19 +3,103 @@ services:
     image: postgres:16-alpine
     container_name: task_tracker_postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}          
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  
-      POSTGRES_DB: ${POSTGRES_DB}              
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data 
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh 
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app
+
+  mailpit:
+    image: axllent/mailpit:v1.9.0
+    container_name: fatask-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    volumes:
+      - mailpit-data:/data
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    networks:
+      - app
+
+  rabbitmq:
+    image: rabbitmq:3.13.3-management-alpine
+    container_name: fatask-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: fatask
+      RABBITMQ_DEFAULT_PASS: fatask
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app
+
+  email-sender:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fatask-email-sender
+    restart: unless-stopped
+    command: celery -A backend.tasks.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      RABBITMQ_URL: amqp://fatask:fatask@rabbitmq:5672//
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: noreply@fatask.local
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - app
+
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fatask-scheduler
+    restart: unless-stopped
+    command: celery -A backend.tasks.celery_app beat --loglevel=info
+    environment:
+      RABBITMQ_URL: amqp://fatask:fatask@rabbitmq:5672//
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: noreply@fatask.local
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - app
+
 volumes:
   postgres_data:
+  mailpit-data:
+
+networks:
+  app:
+    driver: bridge
