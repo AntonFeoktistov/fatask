@@ -1,9 +1,8 @@
-import logging
+from loguru import logger
 
+from backend.tasks import email_llm  # noqa
 from backend.tasks.celery_app import celery_app
 from backend.tasks.email_client import send_email
-
-logger = logging.getLogger(__name__)
 
 
 @celery_app.task(
@@ -13,6 +12,13 @@ logger = logging.getLogger(__name__)
     default_retry_delay=60,
 )
 def send_welcome_email(self, to_email: str, username: str) -> str:
+    logger.info(
+        "Welcome email task started | to={} | username={} | attempt={}",
+        to_email,
+        username,
+        self.request.retries + 1,
+    )
+
     try:
         body = (
             f"Hi {username},\n\n"
@@ -25,20 +31,20 @@ def send_welcome_email(self, to_email: str, username: str) -> str:
             subject="Welcome to Fatask!",
             body=body,
         )
+        logger.success("Welcome email sent | to={}", to_email)
         return f"sent to {to_email}"
+
     except Exception as exc:
-        logger.exception("Failed to send welcome email to %s", to_email)
+        logger.error(
+            "Welcome email failed | to={} | attempt={} | error={}",
+            to_email,
+            self.request.retries + 1,
+            exc,
+        )
+        if self.request.retries >= self.max_retries:
+            logger.error(
+                "Max retries ({}) reached for {} | giving up",
+                self.max_retries,
+                to_email,
+            )
         raise self.retry(exc=exc)
-
-
-@celery_app.task(name="backend.tasks.email_tasks.send_daily_reports")
-def send_daily_reports() -> str:
-    logger.info("Daily report job started")
-
-    # 1. Получить всех пользователей и их задачи за сутки
-    # 2. Для каждого сформировать данные для LLM
-    # 3. Вызвать LLM (синхронный httpx.Client)
-    # 4. Отправить email
-
-    # Пока заглушка:
-    return "daily reports job finished (stub)"

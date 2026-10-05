@@ -1,10 +1,9 @@
-import logging
 import smtplib
 from email.message import EmailMessage
 
-from backend.core.config import settings
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from backend.core.config import settings
 
 SMTP_HOST = settings.SMTP_HOST
 SMTP_PORT = settings.SMTP_PORT
@@ -24,14 +23,27 @@ def send_email(to: str, subject: str, body: str, html: str | None = None) -> Non
     if html:
         msg.add_alternative(html, subtype="html")
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-        # TLS/логин только если заданы креды (в проде)
-        if SMTP_USE_TLS:
-            server.starttls()
-        if SMTP_USER and SMTP_PASSWORD:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
+    logger.info("Sending email to {} | subject={}", to, subject)
 
-        server.send_message(msg)
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            if SMTP_USE_TLS:
+                server.starttls()
+            if SMTP_USER and SMTP_PASSWORD:
+                server.login(SMTP_USER, SMTP_PASSWORD)
 
-    logger.info("Email sent to %s: %s", to, subject)
+            server.send_message(msg)
+
+        logger.success("Email sent to {} | subject={}", to, subject)
+
+    except smtplib.SMTPAuthenticationError:
+        logger.error("SMTP auth failed | user={}", SMTP_USER)
+        raise
+
+    except smtplib.SMTPConnectError:
+        logger.error("SMTP connect failed | host={} | port={}", SMTP_HOST, SMTP_PORT)
+        raise
+
+    except Exception as e:
+        logger.error("Email send failed | to={} | error={}", to, e)
+        raise

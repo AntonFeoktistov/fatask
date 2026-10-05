@@ -43,9 +43,16 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = Field(default=None, alias="SMTP_PASSWORD")
     SMTP_USE_TLS: bool = Field(default=False, alias="SMTP_USE_TLS")
 
+    DATABASE_URL: str | None = Field(default=None, alias="DATABASE_URL")
+
     @property
     def database_url(self) -> str:
-        return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+        return (
+            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
 
     RABBITMQ_URL: str = "amqp://fatask:fatask@localhost:5672//"
 
